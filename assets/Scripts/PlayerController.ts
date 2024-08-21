@@ -1,8 +1,12 @@
-import { _decorator, Component, EventMouse, Input, input, Node, Vec3 } from 'cc';
+import { _decorator, Animation, Component, EventMouse, Input, input, Node, Vec3 } from 'cc';
 const { ccclass, property } = _decorator;
 
 @ccclass('PlayerController')
 export class PlayerController extends Component {
+
+    @property({ type: Animation })
+    public BodyAnim: Animation | null = null;
+
     private _startJump: boolean = false;
     private _jumpStep: number = 0;
     private _curJumpTime: number = 0;
@@ -11,10 +15,12 @@ export class PlayerController extends Component {
     private _curPos: Vec3 = new Vec3();
     private _deltaPos: Vec3 = new Vec3(0, 0, 0);
     private _targetPos: Vec3 = new Vec3();
-
+    private _curMoveIndex = 0;
 
     start() {
         input.on(Input.EventType.MOUSE_UP, this.onMouseUp, this);
+        console.log("start");
+
     }
 
     update(deltaTime: number) {
@@ -23,32 +29,55 @@ export class PlayerController extends Component {
         }
 
         this._curJumpTime += deltaTime;
-        if (this._curJumpTime > this._jumpTime) { // end of jump
-            // end
-            this.node.setPosition(this._targetPos); // force move to target position
-            this._startJump = false; // mark the end of the jump
-        } else { // jump in progress
-            // tween
-            this.node.getPosition(this._curPos); // Get the current position 
-            this._deltaPos.x = this._curJumpSpeed * deltaTime; // calculate the length of this frame that should be displaced
-            Vec3.add(this._curPos, this._curPos, this._deltaPos); // add the current position to the length of the displacement
-            this.node.setPosition(this._curPos); // set the position after displacement
+        if (this._curJumpTime > this._jumpTime) { 
+            this.node.setPosition(this._targetPos); 
+            this._startJump = false; 
+        } else { 
+            this.node.getPosition(this._curPos); 
+            this._deltaPos.x = this._curJumpSpeed * deltaTime; 
+            Vec3.add(this._curPos, this._curPos, this._deltaPos); 
+            this.node.setPosition(this._curPos); 
         }
     }
-    onMouseUp(event: EventMouse) {
-        if (event.getButton() === 0) {
 
+    public onMouseUp(event: EventMouse) {
+        if (event.getButton() === 0) {
+            this.jumpByStep(1);
         }
         else if (event.getButton() === 2) {
-
+            this.jumpByStep(2);
         }
 
+    }
+
+    
+    onOnceJumpEnd() {
+        this.node.emit('JumpEnd', this._curMoveIndex);
+    }
+    
+    setInputActive(active: boolean) {
+        if (active) {
+            input.on(Input.EventType.MOUSE_UP, this.onMouseUp, this);
+        } else {
+            input.off(Input.EventType.MOUSE_UP, this.onMouseUp, this);
+        }
     }
 
     jumpByStep(step: number) {
         if (this._startJump) {
             return;
         }
+
+        if (this.BodyAnim) {
+            if (step === 1) {
+                this.BodyAnim.play('onStep');
+                
+            } else if (step === 2) {
+                this.BodyAnim.play('twoStep');
+            }
+        }
+        this._curMoveIndex += step;
+
         this._startJump = true; // Whether to start to jump
         this._jumpStep = step; // Jump steps for this time
         this._curJumpTime = 0; // Reset the jump time
@@ -57,6 +86,11 @@ export class PlayerController extends Component {
         // target position = current position + steps
         Vec3.add(this._targetPos, this._curPos, new Vec3(this._jumpStep, 0, 0));
     }
+
+    reset() {
+        this._curMoveIndex = 0;
+    }
+
 }
 
 
